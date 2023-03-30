@@ -1,4 +1,4 @@
-# hello-world
+# elevator-app
 
 ## Project setup
 ```
