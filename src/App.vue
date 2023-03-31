@@ -1,34 +1,22 @@
 <template>
   <div class="app-cover">
     <div class="lift-system">
-      <div class="floors">
-        <div v-for="floor in floors" class="floor" :key="floor">
-          <button class="call-button" :class="{ 'active': activeButtons.includes(floor) }"
-            :style="{ 'background-color': activeButtons.includes(floor) ? 'red' : 'white' }" @click="callElevator(floor)">
-            {{ floor }}
-          </button>
-        </div>
-      </div>
-      <div class="shaft"  :style="{ height: `${height * floorsAmount}px` }">
-        <div :state="elevatorState" :class="arrived ? 'elevator arrived' : 'elevator'" :style="{
-          marginBottom,
-          transitionProperty: marginBottom,
-          transitionDuration: `${distance}s`,
-        }">
-
-          <div class="elevator-container">
-            <img alt="arrow" src="../src/assets/arrow-up.svg" :class="arrowState()">
-            <div class="display">{{ displayText || 1 }}</div>
-          </div>``
-        </div>
-      </div>
+      <FloorsBlock :floors="floors" :activeButtons="activeButtons" @call-elevator="callElevator" />
+      <ShaftBlock :elevatorState="elevatorState" :arrived="arrived" :height="height" :floorsAmount="floorsAmount"
+        :marginBottom="marginBottom" :distance="distance" :displayText="displayText" :arrowState="arrowState" />
     </div>
   </div>
 </template>
-
-
 <script>
+
+import FloorsBlock from '@/components/FloorsBlock.vue';
+import ShaftBlock from '@/components/ShaftBlock.vue';
+
 export default {
+  components: {
+    FloorsBlock,
+    ShaftBlock,
+  },
   data() {
     return {
       activeButtons: [],
@@ -38,7 +26,7 @@ export default {
       elevatorPosition: 0,
       direction: 'idle',
 
-      floorsAmount: 7,
+      floorsAmount: 8,
       floors: [],
       height: 100,
       isMoving: false,
@@ -46,6 +34,8 @@ export default {
       marginBottom: sessionStorage.getItem('marginBottom') || 0,
       targetFloor: null,
       queue: [],
+
+      elevatorState: null,
     };
   },
   methods: {
@@ -72,7 +62,7 @@ export default {
         this.direction = 'idle';
         return;
       }
-      this.elevatorState = "moving down"
+      this.elevatorState = this.marginBottom > (this.targetFloor - 1) * this.height + 'px' ? 'moving down' : 'moving up';
       this.movingUp = this.elevatorPosition > this.targetFloor - 1;
       this.currentFloor = floor;
       this.isMoving = true;
@@ -86,9 +76,7 @@ export default {
       }
 
       this.marginBottom = (this.targetFloor - 1) * this.height + 'px';
-
       this.distance = Math.abs((this.targetFloor - 1) - this.elevatorPosition);
-
       this.elevatorPosition = (this.targetFloor - 1);
       this.displayText = `${this.targetFloor}`;
       sessionStorage.setItem('marginBottom', this.marginBottom);
@@ -159,7 +147,8 @@ export default {
 body {
   margin: 0;
 }
-.app-cover{
+
+.app-cover {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,5 +257,4 @@ body {
 
 .arrived {
   animation: blink 0.5s ease-in-out 6;
-}
-</style>
+}</style>
