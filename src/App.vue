@@ -1,82 +1,97 @@
 <template>
   <div class="app-cover">
     <div class="lift-system">
-      <FloorsBlock :floors="floors" :activeButtons="activeButtons" @call-elevator="callElevator" />
-      <ShaftBlock :elevatorState="elevatorState" :arrived="arrived" :height="height" :floorsAmount="floorsAmount"
-        :marginBottom="marginBottom" :distance="distance" :displayText="displayText" :arrowState="arrowState" />
+      <div class="floors">
+        <div v-for="floor in floors" class="floor" :key="floor">
+          <button class="call-button" :class="{ 'active': activeButtons.includes(floor) }"
+            :style="{ 'background-color': activeButtons.includes(floor) ? 'red' : 'white' }" @click="callElevator(floor)">
+            {{ floor }}
+          </button>
+        </div>
+      </div>
+      <div class="shaft"  :style="{ height: `${height * floorsAmount}px` }">
+        <div :state="elevatorState" :class="arrived ? 'elevator arrived' : 'elevator'" :style="{
+          marginBottom,
+          transitionProperty: marginBottom,
+          transitionDuration: `${distance}s`,
+        }">
+          <div class="elevator-container">
+            <img alt="arrow" src="../src/assets/arrow-up.svg" :class="arrowState()">
+            <div class="display">{{ displayText || 1 }}</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
+
 <script>
 
-import FloorsBlock from '@/components/FloorsBlock.vue';
-import ShaftBlock from '@/components/ShaftBlock.vue';
 
 export default {
-  components: {
-    FloorsBlock,
-    ShaftBlock,
-  },
   data() {
     return {
-      activeButtons: [],
-      arrived: false,
-      displayText: '',
-      distance: null,
-      elevatorPosition: 0,
-      direction: 'idle',
-
-      floorsAmount: 8,
-      floors: [],
+      floorsAmount: 7,
       height: 100,
-      isMoving: false,
+      elevatorsAmount: 3,
+      activeButtons: [],
+            arrived: false,
+            displayText: '',
+            distance: null,
+            elevatorPosition: 0,
+            elevatorState: null,
+
+      floors: [],
+      queue: [],
+      queueIsEmpty: false,
 
       marginBottom: sessionStorage.getItem('marginBottom') || 0,
       targetFloor: null,
-      queue: [],
-
-      elevatorState: null,
     };
   },
   methods: {
-
-    fillFloorsArray() {
-      this.floors = Array.from({ length: this.floorsAmount }, (_, i) => this.floorsAmount - i);
+    fillElevatorsArray() {
+      this.elevators = Array.from({ length: this.elevatorsAmount }, () => ({
+        queue: [],
+        arrived: false,
+        displayText: '',
+        distance: null,
+        elevatorPosition: 0,
+        direction: 'idle',
+        isMoving: false,
+        marginBottom: 0,
+        targetFloor: null,
+      }));
+      // console.log(this.elevators);
     },
 
     callElevator(floor) {
       if (this.queue.includes(floor) || this.elevatorPosition === (floor - 1)) {
         return;
       }
-
       this.activeButtons.push(floor);
       this.queue.push(floor);
-      if (!this.isMoving) {
+      if (!this.queueIsEmpty) {
         this.moveElevator();
       }
     },
 
     moveElevator(floor) {
       if (!this.queue.length) {
-        this.isMoving = false;
-        this.direction = 'idle';
+        this.queueIsEmpty = false;
         return;
       }
-      this.elevatorState = this.marginBottom > (this.targetFloor - 1) * this.height + 'px' ? 'moving down' : 'moving up';
+      
       this.movingUp = this.elevatorPosition > this.targetFloor - 1;
-      this.currentFloor = floor;
-      this.isMoving = true;
+      this.queueIsEmpty = true;
       this.targetFloor = this.queue.shift();
 
-
-      if (this.marginBottom > (this.targetFloor - 1) * this.height + 'px') {
-        this.direction = 'down';
-      } else {
-        this.direction = 'up';
-      }
+      this.elevatorState = parseInt(this.marginBottom) > (this.targetFloor - 1) * this.height ? 'moving down' : 'moving up';
 
       this.marginBottom = (this.targetFloor - 1) * this.height + 'px';
+
       this.distance = Math.abs((this.targetFloor - 1) - this.elevatorPosition);
+
       this.elevatorPosition = (this.targetFloor - 1);
       this.displayText = `${this.targetFloor}`;
       sessionStorage.setItem('marginBottom', this.marginBottom);
@@ -106,26 +121,31 @@ export default {
     },
 
     handleQueue() {
-      if (!this.isMoving) {
+      if (!this.queueIsEmpty) {
         this.moveElevator();
       }
     },
 
     arrowState() {
-      if (this.isMoving) {
-        if (this.direction === "up") {
+      if (this.queueIsEmpty) {
+        if (this.elevatorState === "moving up") {
           return 'arrow-up'
-        } else if (this.direction === "down") {
+        } else if (this.elevatorState === "moving down") {
           return 'arrow-down'
         }
       } else {
         return 'arrow'
       }
-    }
+    },
+
+    fillFloorsArray() {
+      this.floors = Array.from({ length: this.floorsAmount }, (_, i) => this.floorsAmount - i);
+    },
 
   },
 
   mounted() {
+    this.fillElevatorsArray();
     this.fillFloorsArray();
     const savedState = JSON.parse(sessionStorage.getItem('liftSystemState'));
     if (savedState) {
@@ -257,4 +277,5 @@ body {
 
 .arrived {
   animation: blink 0.5s ease-in-out 6;
-}</style>
+}
+</style>
