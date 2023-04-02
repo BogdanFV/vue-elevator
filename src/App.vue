@@ -1,35 +1,23 @@
 <template>
   <div class="app-cover">
     <div class="lift-system">
-      <div class="floors">
-        <div v-for="floor in floors" class="floor" :key="floor">
-          <button class="call-button" :class="{ 'active': activeButtons.includes(floor) }"
-            :style="{ 'background-color': activeButtons.includes(floor) ? 'red' : 'white' }" @click="callElevator(floor)">
-            {{ floor }}
-          </button>
-        </div>
-      </div>
+      <FloorsComponent :floors="floors" :active-buttons="activeButtons" @call-elevator="callElevator"/>
       <div class="shaft" :style="{ height: `${height * floorsAmount}px` }">
-        <div class="elevators">
-          <div v-for="(elevator, index)  in elevators" :key="elevator" :state="elevators[index].elevatorState"
-            :class="elevators[index].arrived ? 'elevator arrived' : 'elevator'" :style="{
-              marginBottom: elevators[index].marginBottom,
-              transitionProperty: elevators[index].marginBottom,
-              transitionDuration: `${elevators[index].distance}s`,
-              height: `${height}px`
-            }">
-            <div class="elevator-info">
-              <img alt="arrow" src="../src/assets/arrow-up.svg" :class="arrowState(index)">
-              <div class="display">{{ elevators[index].displayText }}</div>
-            </div>
-          </div>
-        </div>
+        <ElevatorsComponent :elevators="elevators" :height="height"/>
       </div>
     </div>
+    <div class="ground"></div>
   </div>
 </template>
 <script>
+import FloorsComponent from "@/components/FloorsComponent";
+import ElevatorsComponent from "@/components/ElevatorsComponent";
+
 export default {
+  components: {
+    FloorsComponent,
+    ElevatorsComponent,
+  },
   data() {
     return {
       floorsAmount: 7,
@@ -49,27 +37,29 @@ export default {
         arrived: false,
         displayText: 1,
         distance: null,
-        elevatorPrevPosition: 0,
+        elevatorPrevFloor: 1,
         marginBottom: 0,
         targetFloor: 1,
         elevatorState: 'idle',
-        localQueue: [],
       }));
     },
 
     callElevator(floor) {
+      console.log("1");      
       if (this.lockedFloors.includes(floor)) {
         return;
       }
+      console.log("2");      
       let nearestElevator = -1;
       let nearestDistance = Number.MAX_VALUE;
-      for (let i = 0; i < this.elevatorsAmount; i++) {
-        let distance = Math.abs(this.elevators[i].elevatorPrevPosition - (floor - 1));
+      for (let i = 0; i < this.elevatorsAmount; i++) {  
+        let distance = Math.abs(this.elevators[i].targetFloor - floor);
         if (this.elevators[i].elevatorState === 'idle' && distance < nearestDistance) {
           nearestElevator = i;
           nearestDistance = distance;
         }
       }
+      console.log(nearestElevator);   
       this.queue.includes(floor) ? null : this.queue.push(floor);
       this.activeButtons.includes(floor) ? null : this.activeButtons.push(floor);
       
@@ -87,11 +77,11 @@ export default {
       this.lockedFloors.splice(this.lockedFloors.indexOf(this.elevators[i].targetFloor), 1);
       this.lockedFloors.push(floor);
 
-      this.elevators[i].targetFloor = this.queue.shift();
+      this.elevators[i].targetFloor = floor;
+      this.queue.shift();
       this.elevators[i].elevatorState = parseInt(this.elevators[i].marginBottom) > (this.elevators[i].targetFloor - 1) * this.height ? 'moving down' : 'moving up';
       this.elevators[i].marginBottom = (this.elevators[i].targetFloor - 1) * this.height + 'px';
-      this.elevators[i].distance = Math.abs((this.elevators[i].targetFloor - 1) - this.elevators[i].elevatorPrevPosition);
-      this.elevators[i].elevatorPrevPosition = (this.elevators[i].targetFloor - 1);
+      this.elevators[i].distance = Math.abs(this.elevators[i].targetFloor - this.elevators[i].elevatorPrevFloor);
       this.elevators[i].displayText = `${this.elevators[i].targetFloor}`;
 
       setTimeout(() => {
@@ -100,9 +90,11 @@ export default {
         if (index !== -1) {
           this.activeButtons.splice(index, 1);
         }
+        this.elevators[i].elevatorPrevFloor = this.elevators[i].targetFloor;
         setTimeout(() => {
           this.elevators[i].elevatorState = 'idle';
           this.elevators[i].arrived = false;
+          console.log(this.queue);
           this.queue.length > 0 ? this.callElevator(this.queue[0]) : null; 
         }, 3000);
       }, this.elevators[i].distance * 1000);
@@ -110,30 +102,26 @@ export default {
 
     saveState() {
       const state = {
-        marginBottom: [],
+        queue : this.queue,
+        activeButtons: this.activeButtons,
+        arrived: [],
+        distance: [],
         displayText: [],
         targetFloor: [],
-        elevatorPrevPosition: [],
+        marginBottom: [],
+        elevatorState: [],
+        elevatorPrevFloor: [],
       };
       for (let i = 0; i < this.elevatorsAmount; i++) {
+        state.displayText.push(this.elevators[i].targetFloor);
         state.marginBottom.push(this.elevators[i].marginBottom);
-        state.displayText.push(this.elevators[i].displayText);
+        // state.arrived.push(this.elevators[i].arrived);
+        // state.distance.push(this.elevators[i].distance);
         state.targetFloor.push(this.elevators[i].targetFloor);
-        state.elevatorPrevPosition.push(this.elevators[i].elevatorPrevPosition);
-        
+        state.elevatorState.push('idle');
+        state.elevatorPrevFloor.push(this.elevators[i].elevatorPrevFloor);
       }
       sessionStorage.setItem('liftSystemState', JSON.stringify(state));
-    },
-
-    arrowState(index) {
-        switch (true) {
-          case (this.elevators[index].elevatorState === "moving up"):
-            return 'arrow-up'
-          case (this.elevators[index].elevatorState === "moving down"):
-            return 'arrow-down'
-          default:
-            return 'arrow'
-        }
     },
 
     fillFloorsArray() {
@@ -154,11 +142,16 @@ export default {
     const savedState = JSON.parse(sessionStorage.getItem('liftSystemState'));
     if (savedState) {
       for (let i = 0; i < this.elevatorsAmount; i++) {
-        this.elevators[i].marginBottom = savedState.marginBottom[i];
-        this.elevators[i].elevatorPrevPosition = savedState.elevatorPrevPosition[i];
+        this.elevators[i].arrived = savedState.arrived[i];
+        // this.elevators[i].distance = savedState.distance[i];
         this.elevators[i].displayText = savedState.displayText[i];
         this.elevators[i].targetFloor = savedState.targetFloor[i];
+        this.elevators[i].marginBottom = savedState.marginBottom[i];
+        this.elevators[i].elevatorState = savedState.elevatorState[i];
+        this.elevators[i].elevatorPrevFloor = savedState.elevatorPrevFloor[i];
       }
+      // this.activeButtons = savedState.activeButtons;
+      this.queue = savedState.queue;
     }
     this.fillLockedFloors();
     window.addEventListener('beforeunload', this.saveState);
@@ -174,120 +167,27 @@ export default {
 body {
   margin: 0;
 }
-
 .app-cover {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  flex-direction: column;
   height: 100vh;
-  background-color: #a1f2a4;
+  background-color: #1b1b1b;
 }
-
-.arrow {
-  display: none;
-  height: 30px;
-  width: 30px;
-}
-
-.arrow-up {
-  height: 30px;
-  width: 30px;
-}
-
-.arrow-down {
-  height: 30px;
-  width: 30px;
-  transform: rotate(180deg);
-}
-
 .lift-system {
   display: flex;
   justify-content: center;
   align-items: flex-end;
   flex-direction: row;
+  border: 1px solid black;
 }
-
-.floors {
-  display: flex;
-  background: grey;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-}
-
-.floor {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100px;
-  width: 16vh;
-}
-
-.elevators {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  height: 100%;
-}
-
-.elevator {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: rgb(23, 23, 29);
-  bottom: 0;
-  width: 16vh;
-  border-left: 1px solid white;
-  border-right: 1px solid white;
-}
-
 .shaft {
   background: orange;
 }
-
-.elevator-info {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-}
-
-.display {
-  color: wheat;
-  font-size: 30px;
-}
-
-.call-button:not(.active):hover {
-  cursor: pointer;
-  height: 42%;
-  width: 32%;
-  filter: drop-shadow(0 0 0.1rem crimson);
-}
-
-.call-button {
-  height: 40%;
-  width: 30%;
-}
-
-.active {
-  background-color: red;
-}
-
-@keyframes blink {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
-
-.arrived {
-  animation: blink 0.5s ease-in-out 6;
+.ground{
+  width: 100vw;
+  height: 10vh;
+  background: rgb(63, 63, 63);
 }
 </style>
