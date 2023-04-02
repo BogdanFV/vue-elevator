@@ -12,18 +12,16 @@
       <div class="shaft" :style="{ height: `${height * floorsAmount}px` }">
         <div class="elevators">
           <div v-for="(elevator, index)  in elevators" :key="elevator" :state="elevators[index].elevatorState"
-            :class="elevators[index].arrived ? 'elevator arrived' : 'elevator'" 
-            :style="{
+            :class="elevators[index].arrived ? 'elevator arrived' : 'elevator'" :style="{
               marginBottom: elevators[index].marginBottom,
               transitionProperty: elevators[index].marginBottom,
               transitionDuration: `${elevators[index].distance}s`,
               height: `${height}px`
-            }"
-          >
-          <div class="elevator-info">
-            <img alt="arrow" src="../src/assets/arrow-up.svg" :class="arrowState(index)">
-            <div class="display">{{ elevators[index].displayText }}</div>
-          </div>
+            }">
+            <div class="elevator-info">
+              <img alt="arrow" src="../src/assets/arrow-up.svg" :class="arrowState(index)">
+              <div class="display">{{ elevators[index].displayText }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -42,12 +40,12 @@ export default {
 
       queue: [],
       activeButtons: [],
-
       floors: [],
       elevators: [],
-      queueIsNotEmpty: false,
+      lockedFloors: [],
 
-      targetFloor: null,
+      queueIsNotEmpty: false,
+      prikol: false,
     };
   },
   methods: {
@@ -58,68 +56,86 @@ export default {
         distance: null,
         elevatorPrevPosition: 0,
         marginBottom: sessionStorage.getItem('marginBottom') || 0,
-        targetFloor: null,
-        elevatorState: 'idle'
+        targetFloor: 1,
+        elevatorState: 'idle',
+        localQueue: [],
       }));
-      console.log(this.elevators);
     },
 
     callElevator(floor) {
-      if (this.queue.includes(floor) || this.elevatorPrevPosition === (floor - 1)) {
+      // console.log("Calling The Elevator");
+      if (this.queue.includes(floor) || this.lockedFloors.includes(floor)) {
+        // console.log("queue is empty || floor is locked");
         return;
       }
-      this.activeButtons.push(floor);
+
+      let nearestElevator = -1;
+      let nearestDistance = Number.MAX_VALUE;
+      for (let i = 0; i < this.elevatorsAmount; i++) {
+        let distance = Math.abs(this.elevators[i].elevatorPrevPosition - (floor - 1));
+        if (this.elevators[i].elevatorState === 'idle' && distance < nearestDistance) {
+          nearestElevator = i;
+          nearestDistance = distance;
+        }
+      }
       this.queue.push(floor);
-      if (!this.queueIsNotEmpty) {
-        this.moveElevator();
+      this.activeButtons.push(floor);
+      if (nearestElevator >= 0) {
+        if (this.queue.length > 0) {
+          this.moveElevator(nearestElevator, floor);
+          this.callElevator(floor);
+        }
+      } else {
+        this.prikol = true;
       }
     },
 
-    moveElevator() {
+    moveElevator(i, floor) {
+      // console.log("Moving The Elevator");
       if (!this.queue.length) {
-        this.queueIsNotEmpty = false;
+        // console.log("queue is empty ");
         return;
       }
-      this.queueIsNotEmpty = true;
-      this.targetFloor = this.queue.shift();
+      this.lockedFloors.splice(this.lockedFloors.indexOf(this.elevators[i].targetFloor), 1);
+      this.lockedFloors.push(floor);
 
-      this.elevators[0].elevatorState = parseInt(this.elevators[0].marginBottom) > (this.targetFloor - 1) * this.height ? 'moving down' : 'moving up';
-      this.elevators[0].marginBottom = (this.targetFloor - 1) * this.height + 'px';
-      this.elevators[0].distance = Math.abs((this.targetFloor - 1) - this.elevators[0].elevatorPrevPosition);
-      this.elevators[0].elevatorPrevPosition = (this.targetFloor - 1);
-      this.elevators[0].displayText = `${this.targetFloor}`;
+      this.elevators[i].targetFloor = this.queue.shift();
+      this.elevators[i].elevatorState = parseInt(this.elevators[i].marginBottom) > (this.elevators[i].targetFloor - 1) * this.height ? 'moving down' : 'moving up';
+      this.elevators[i].marginBottom = (this.elevators[i].targetFloor - 1) * this.height + 'px';
+      this.elevators[i].distance = Math.abs((this.elevators[i].targetFloor - 1) - this.elevators[i].elevatorPrevPosition);
+      this.elevators[i].elevatorPrevPosition = (this.elevators[i].targetFloor - 1);
+      this.elevators[i].displayText = `${this.elevators[i].targetFloor}`;
 
       setTimeout(() => {
-        this.elevators[0].arrived = true;
-        const index = this.activeButtons.indexOf(this.targetFloor);
+        this.elevators[i].arrived = true;
+        const index = this.activeButtons.indexOf(this.elevators[i].targetFloor);
         if (index !== -1) {
           this.activeButtons.splice(index, 1);
         }
         setTimeout(() => {
-          this.elevators[0].arrived = false;
-          this.moveElevator();
+          this.elevators[i].elevatorState = 'idle';
+          this.elevators[i].arrived = false;
         }, 3000);
-      }, this.elevators[0].distance * 1000);
+      }, this.elevators[i].distance * 1000);
     },
 
     saveState() {
       const state = {
-        marginBottom: this.elevators[0].marginBottom,
-        displayText: this.elevators[0].displayText,
-        targetFloor: this.elevators[0].targetFloor,
-        elevatorPrevPosition: this.elevators[0].elevatorPrevPosition
+        marginBottom: [],
+        displayText: [],
+        targetFloor: [],
+        elevatorPrevPosition: [],
       };
+      for (let i = 0; i < this.elevatorsAmount; i++) {
+        state.marginBottom.push(this.elevators[i].marginBottom);
+        state.displayText.push(this.elevators[i].displayText);
+        state.targetFloor.push(this.elevators[i].targetFloor);
+        state.elevatorPrevPosition.push(this.elevators[i].elevatorPrevPosition);
+      }
       sessionStorage.setItem('liftSystemState', JSON.stringify(state));
     },
 
-    handleQueue() {
-      if (!this.queueIsNotEmpty) {
-        this.moveElevator();
-      }
-    },
-
     arrowState(index) {
-      if (this.queueIsNotEmpty) {
         switch (true) {
           case (this.elevators[index].elevatorState === "moving up"):
             return 'arrow-up'
@@ -128,26 +144,33 @@ export default {
           default:
             return 'arrow'
         }
-      }
-      return 'arrow'
     },
 
     fillFloorsArray() {
       this.floors = Array.from({ length: this.floorsAmount }, (_, i) => this.floorsAmount - i);
     },
 
+    fillLockedFloors() {
+      for (let i = 0; i < this.elevatorsAmount; i++) {
+        this.lockedFloors.push(this.elevators[i].targetFloor)
+      }
+    },
+
   },
 
   mounted() {
-    this.fillElevatorsArray();
     this.fillFloorsArray();
+    this.fillElevatorsArray();
     const savedState = JSON.parse(sessionStorage.getItem('liftSystemState'));
     if (savedState) {
-      this.elevators[0].marginBottom = savedState.marginBottom;
-      this.elevatorPrevPosition = savedState.elevatorPrevPosition;
-      this.elevators[0].displayText = savedState.displayText;
-      this.targetFloor = savedState.targetFloor;
+      for (let i = 0; i < this.elevatorsAmount; i++) {
+        this.elevators[i].marginBottom = savedState.marginBottom[i];
+        this.elevators[i].elevatorPrevPosition = savedState.elevatorPrevPosition[i];
+        this.elevators[i].displayText = savedState.displayText[i];
+        this.elevators[i].targetFloor = savedState.targetFloor[i];
+      }
     }
+    this.fillLockedFloors();
     window.addEventListener('beforeunload', this.saveState);
   },
 
