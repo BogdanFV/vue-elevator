@@ -41,9 +41,6 @@ export default {
       floors: [],
       elevators: [],
       lockedFloors: [],
-
-      queueIsNotEmpty: false,
-      prikol: false,
     };
   },
   methods: {
@@ -53,7 +50,7 @@ export default {
         displayText: 1,
         distance: null,
         elevatorPrevPosition: 0,
-        marginBottom: sessionStorage.getItem('marginBottom') || 0,
+        marginBottom: 0,
         targetFloor: 1,
         elevatorState: 'idle',
         localQueue: [],
@@ -123,6 +120,7 @@ export default {
         state.displayText.push(this.elevators[i].displayText);
         state.targetFloor.push(this.elevators[i].targetFloor);
         state.elevatorPrevPosition.push(this.elevators[i].elevatorPrevPosition);
+        
       }
       sessionStorage.setItem('liftSystemState', JSON.stringify(state));
     },
@@ -259,8 +257,11 @@ body {
   font-size: 30px;
 }
 
-.call-button:hover {
+.call-button:not(.active):hover {
   cursor: pointer;
+  height: 42%;
+  width: 32%;
+  filter: drop-shadow(0 0 0.1rem crimson);
 }
 
 .call-button {
