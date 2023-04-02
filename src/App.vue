@@ -28,8 +28,6 @@
     </div>
   </div>
 </template>
-
-
 <script>
 export default {
   data() {
@@ -63,12 +61,9 @@ export default {
     },
 
     callElevator(floor) {
-      // console.log("Calling The Elevator");
-      if (this.queue.includes(floor) || this.lockedFloors.includes(floor)) {
-        // console.log("queue is empty || floor is locked");
+      if (this.lockedFloors.includes(floor)) {
         return;
       }
-
       let nearestElevator = -1;
       let nearestDistance = Number.MAX_VALUE;
       for (let i = 0; i < this.elevatorsAmount; i++) {
@@ -78,22 +73,18 @@ export default {
           nearestDistance = distance;
         }
       }
-      this.queue.push(floor);
-      this.activeButtons.push(floor);
+      this.queue.includes(floor) ? null : this.queue.push(floor);
+      this.activeButtons.includes(floor) ? null : this.activeButtons.push(floor);
+      
       if (nearestElevator >= 0) {
         if (this.queue.length > 0) {
           this.moveElevator(nearestElevator, floor);
-          this.callElevator(floor);
         }
-      } else {
-        this.prikol = true;
       }
     },
 
     moveElevator(i, floor) {
-      // console.log("Moving The Elevator");
       if (!this.queue.length) {
-        // console.log("queue is empty ");
         return;
       }
       this.lockedFloors.splice(this.lockedFloors.indexOf(this.elevators[i].targetFloor), 1);
@@ -115,6 +106,7 @@ export default {
         setTimeout(() => {
           this.elevators[i].elevatorState = 'idle';
           this.elevators[i].arrived = false;
+          this.queue.length > 0 ? this.callElevator(this.queue[0]) : null; 
         }, 3000);
       }, this.elevators[i].distance * 1000);
     },
