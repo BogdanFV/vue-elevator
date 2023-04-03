@@ -1,9 +1,10 @@
+Богдан, [03.04.2023 1:45]
 <template>
   <div class="app-cover">
     <div class="lift-system">
-      <FloorsComponent :floors="floors" :active-buttons="activeButtons" @call-elevator="callElevator"/>
-      <div class="shaft" :style="{ height: `${height * floorsAmount}px` }">
-        <ElevatorsComponent :elevators="elevators" :height="height"/>
+      <FloorsComponent :floors="floors" :active-buttons="activeButtons" @call-elevator="callElevator" />
+      <div class="shaft" :style="{ height: `${ height * floorsAmount }px` }">
+        <ElevatorsComponent :elevators="elevators" :height="height" />
       </div>
     </div>
     <div class="ground"></div>
@@ -12,6 +13,7 @@
 <script>
 import FloorsComponent from "@/components/FloorsComponent";
 import ElevatorsComponent from "@/components/ElevatorsComponent";
+import config from '../config.json';
 
 export default {
   components: {
@@ -20,7 +22,7 @@ export default {
   },
   data() {
     return {
-      floorsAmount: 7,
+      floorsAmount: config.floorsAmount,
       height: 100,
       elevatorsAmount: 3,
 
@@ -45,24 +47,21 @@ export default {
     },
 
     callElevator(floor) {
-      console.log("1");      
       if (this.lockedFloors.includes(floor)) {
         return;
       }
-      console.log("2");      
       let nearestElevator = -1;
       let nearestDistance = Number.MAX_VALUE;
-      for (let i = 0; i < this.elevatorsAmount; i++) {  
+      for (let i = 0; i < this.elevatorsAmount; i++) {
         let distance = Math.abs(this.elevators[i].targetFloor - floor);
         if (this.elevators[i].elevatorState === 'idle' && distance < nearestDistance) {
           nearestElevator = i;
           nearestDistance = distance;
         }
       }
-      console.log(nearestElevator);   
       this.queue.includes(floor) ? null : this.queue.push(floor);
       this.activeButtons.includes(floor) ? null : this.activeButtons.push(floor);
-      
+
       if (nearestElevator >= 0) {
         if (this.queue.length > 0) {
           this.moveElevator(nearestElevator, floor);
@@ -80,7 +79,7 @@ export default {
       this.elevators[i].targetFloor = floor;
       this.queue.shift();
       this.elevators[i].elevatorState = parseInt(this.elevators[i].marginBottom) > (this.elevators[i].targetFloor - 1) * this.height ? 'moving down' : 'moving up';
-      this.elevators[i].marginBottom = (this.elevators[i].targetFloor - 1) * this.height + 'px';
+      this.elevators[i].marginBottom = `${(this.elevators[i].targetFloor - 1) * this.height}px`;
       this.elevators[i].distance = Math.abs(this.elevators[i].targetFloor - this.elevators[i].elevatorPrevFloor);
       this.elevators[i].displayText = `${this.elevators[i].targetFloor}`;
 
@@ -94,15 +93,13 @@ export default {
         setTimeout(() => {
           this.elevators[i].elevatorState = 'idle';
           this.elevators[i].arrived = false;
-          console.log(this.queue);
-          this.queue.length > 0 ? this.callElevator(this.queue[0]) : null; 
+          this.queue.length > 0 ? this.callElevator(this.queue[0]) : null;
         }, 3000);
       }, this.elevators[i].distance * 1000);
     },
-
     saveState() {
       const state = {
-        queue : this.queue,
+        queue: this.queue,
         activeButtons: this.activeButtons,
         arrived: [],
         distance: [],
@@ -115,8 +112,6 @@ export default {
       for (let i = 0; i < this.elevatorsAmount; i++) {
         state.displayText.push(this.elevators[i].targetFloor);
         state.marginBottom.push(this.elevators[i].marginBottom);
-        // state.arrived.push(this.elevators[i].arrived);
-        // state.distance.push(this.elevators[i].distance);
         state.targetFloor.push(this.elevators[i].targetFloor);
         state.elevatorState.push('idle');
         state.elevatorPrevFloor.push(this.elevators[i].elevatorPrevFloor);
@@ -143,15 +138,12 @@ export default {
     if (savedState) {
       for (let i = 0; i < this.elevatorsAmount; i++) {
         this.elevators[i].arrived = savedState.arrived[i];
-        // this.elevators[i].distance = savedState.distance[i];
         this.elevators[i].displayText = savedState.displayText[i];
         this.elevators[i].targetFloor = savedState.targetFloor[i];
         this.elevators[i].marginBottom = savedState.marginBottom[i];
         this.elevators[i].elevatorState = savedState.elevatorState[i];
         this.elevators[i].elevatorPrevFloor = savedState.elevatorPrevFloor[i];
       }
-      // this.activeButtons = savedState.activeButtons;
-      this.queue = savedState.queue;
     }
     this.fillLockedFloors();
     window.addEventListener('beforeunload', this.saveState);
@@ -167,6 +159,7 @@ export default {
 body {
   margin: 0;
 }
+
 .app-cover {
   display: flex;
   align-items: center;
@@ -175,6 +168,7 @@ body {
   height: 100vh;
   background-color: #1b1b1b;
 }
+
 .lift-system {
   display: flex;
   justify-content: center;
@@ -182,12 +176,13 @@ body {
   flex-direction: row;
   border: 1px solid black;
 }
+
 .shaft {
   background: orange;
 }
-.ground{
+
+.ground {
   width: 100vw;
   height: 10vh;
   background: rgb(63, 63, 63);
-}
-</style>
+}</style>
