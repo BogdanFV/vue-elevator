@@ -22,8 +22,8 @@ export default {
   data() {
     return {
       floorsAmount: config.floorsAmount,
-      height: 100,
-      elevatorsAmount: 3,
+      height: config.floorHeight,
+      elevatorsAmount: config.elevatorsAmount,
 
       queue: [],
       activeButtons: [],
